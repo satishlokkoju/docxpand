@@ -60,7 +60,8 @@ def generate_fake_structured_documents(
             f"A JSON dataset already exists in {output_directory}. "
             "Please set a new output directory, or remove the existing files."
         )
-    generator = Generator(template, None, stable_diffusion_api_url or "")
+    renderer = ChromeSVGRenderer()
+    generator = Generator(template, renderer, stable_diffusion_api_url or "")
     all_docs = []
     for _ in range(number):
         try:
