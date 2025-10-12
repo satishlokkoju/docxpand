@@ -3,7 +3,7 @@ import typing as tp
 
 
 class Conditional:
-    def __init__(seed: tp.Optional[int] = None):
+    def __init__(self, seed: tp.Optional[int] = None):
         if seed is not None:
             random.seed(seed)
 
