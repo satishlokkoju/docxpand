@@ -388,10 +388,6 @@ class Generator:
                 output_directory,
                 f"{document_id}-{self.template.name}-{side_name}.svg",
             )
-            output_filename = os.path.join(
-                output_directory,
-                f"{document_id}-{self.template.name}-{side_name}.svg",
-            )
             canvas.render(output_filename, True)
             if self.renderer:
                 png_output = output_filename.replace(".svg", ".png")
