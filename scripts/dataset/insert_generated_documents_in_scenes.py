@@ -6,7 +6,7 @@ import typing as tp
 import click
 
 from docxpand.scene_insertion import insert_generated_documents_in_scenes
-from docxpand.svg_to_image import ChromeSVGRenderer
+from docxpand.svg_to_image import PlaywrightSVGRenderer
 
 logger = logging.getLogger(__name__)
 
@@ -80,7 +80,7 @@ def main(
     seed: tp.Optional[int]
 ) -> None:
     """Generate fake structured documents from an SVG template."""
-    renderer = ChromeSVGRenderer()
+    renderer = PlaywrightSVGRenderer()
     output_dataset_filename = insert_generated_documents_in_scenes(
         document_dataset,
         document_images,

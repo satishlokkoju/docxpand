@@ -11,7 +11,7 @@ from docxpand.scene_insertion import color_transfer_reinhard, illumination_trans
 from docxpand.specimen import load_specimen
 
 #from docxpand.scene_insertion import insert_generated_documents_in_scenes,
-from docxpand.svg_to_image import ChromeSVGRenderer
+from docxpand.svg_to_image import PlaywrightSVGRenderer
 import tqdm
 
 logger = logging.getLogger(__name__)
@@ -103,7 +103,7 @@ def main(
     output_directory: str,
 ) -> None:
     """Generate fake structured documents from an SVG template."""
-    renderer = ChromeSVGRenderer()
+    renderer = PlaywrightSVGRenderer()
     os.makedirs(os.path.abspath(output_directory), exist_ok=True)
 
     # Read the documents dataset and the scenes directory

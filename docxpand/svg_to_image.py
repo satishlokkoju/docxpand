@@ -5,10 +5,7 @@ import subprocess
 import tempfile
 import typing as tp
 
-from selenium import webdriver
-from selenium.webdriver.common.by import By
-from selenium.common.exceptions import NoSuchElementException
-
+from playwright.sync_api import sync_playwright
 from docxpand.geometry import BoundingBox, Point
 from docxpand.image import ColorSpace, Image
 from docxpand.utils import guess_mimetype
@@ -171,59 +168,18 @@ class SVGRenderer:
         raise NotImplementedError("Must be implemented in child class.")
 
 
-class ChromeSVGRenderer(SVGRenderer):
-    """SVG renderer using headless Chrome and Selenium.
+class PlaywrightSVGRenderer(SVGRenderer):
+    """SVG renderer using headless Chrome and Playwright."""
 
-    Attributes:
-        driver: chrome driver
-    """
-
-    def __init__(
-        self,
-        chrome_driver_path: tp.Optional[str] = None,
-    ) -> None:
-        """Init a ChromeSVGRenderer converter.
-
-        Args:
-            chrome_driver_path : path to driver to make selenium work. If not
-                given, Selenium will try to find it at default location. See
-                https://chromedriver.chromium.org/downloads to download and
-                install the driver.
-        """
+    def __init__(self) -> None:
+        """Init a PlaywrightSVGRenderer converter."""
         super().__init__()
-        options = webdriver.ChromeOptions()
-        options.add_argument("disable-gpu")
-        options.add_argument("disable-infobars")
-        options.add_argument("--headless")
-        options.add_argument("window-size=1920,1080")
+        self.playwright = sync_playwright().start()
+        self.browser = self.playwright.chromium.launch(headless=True)
 
-        if chrome_driver_path:
-            self.driver = webdriver.Chrome(
-                chrome_driver_path,
-                options=options,
-            )
-        else:
-            self.driver = webdriver.Chrome(options=options)
-
-    def _send(self, cmd, params=None):
-        """Sending a command to selenium driver.
-
-        Args:
-            cmd : command to send
-            params : parameter from the command
-
-        Returns:
-            Result of the command.
-        """
-        resource = (
-            "/session/%s/chromium/send_command_and_get_result" % self.driver.session_id
-        )
-        url = self.driver.command_executor._url + resource
-        body = json.dumps({"cmd": cmd, "params": params or {}})
-        response = self.driver.command_executor._request("POST", url, body)
-        if "status" in response:
-            raise Exception(response.get("value"))
-        return response.get("value")
+    def __del__(self):
+        self.browser.close()
+        self.playwright.stop()
 
     def _render_image_from_content(self, filecontent: bytes, width: int) -> Image:
         """Perform the rendering.
@@ -234,25 +190,22 @@ class ChromeSVGRenderer(SVGRenderer):
         """
         with tempfile.TemporaryDirectory() as tmp_dirname:
             svg_file_name = os.path.join(tmp_dirname, SVG_FILENAME)
-            with open(svg_file_name, mode="wb") as svg_file:
+            with open(svg_file_name, "wb") as svg_file:
                 svg_file.write(filecontent)
 
             template_file_name = os.path.join(tmp_dirname, HTML_FILENAME)
-            with open(template_file_name, mode="wb") as template_file:
+            with open(template_file_name, "w") as template_file:
                 template_file.write(
-                    str.encode(
-                        HTML_TEMPLATE.format(svg_file=svg_file_name, width=width)
-                    )
+                    HTML_TEMPLATE.format(svg_file=f"file://{os.path.abspath(svg_file_name)}", width=width)
                 )
-            self._send(
-                "Emulation.setDefaultBackgroundColorOverride",
-                {"color": {"r": 0, "g": 0, "b": 0, "a": 0}},
-            )
-            self.driver.get("file:///" + os.path.abspath(template_file_name))
-            elem = self.driver.find_element(By.ID, "svg-image")
-            img = Image.read(elem.screenshot_as_png, ColorSpace.BGRA)
-            self._send("Emulation.setDefaultBackgroundColorOverride")  # restore
-            return img
+
+            page = self.browser.new_page()
+            page.goto(f"file://{os.path.abspath(template_file_name)}")
+            element = page.locator("#svg-image")
+            screenshot = element.screenshot(omit_background=True)
+            page.close()
+
+            return Image.read(screenshot, ColorSpace.BGRA)
 
     def _get_coordinates_for_elements(
         self,
@@ -261,7 +214,7 @@ class ChromeSVGRenderer(SVGRenderer):
             str,
             tp.Tuple[str, bool],
             tp.List[tp.Union[str, tp.Tuple[str, bool]]]
-        ]
+        ],
     ) -> tp.Dict[str, BoundingBox]:
         """Return the coordinates of an element relative to the viewport.
         
@@ -284,10 +237,13 @@ class ChromeSVGRenderer(SVGRenderer):
             element_ids = [element_ids]
 
         def get_bbox(element) -> BoundingBox:
-            top_left = Point(**element.location)
+            box = element.bounding_box()
+            if box is None:
+                return None
+            top_left = Point(x=box['x'], y=box['y'])
             bottom_right = Point(
-                top_left.x + element.size["width"],
-                top_left.y + element.size["height"]
+                x=box['x'] + box['width'],
+                y=box['y'] + box['height']
             )
             return BoundingBox(top_left, bottom_right)
         
@@ -307,11 +263,22 @@ class ChromeSVGRenderer(SVGRenderer):
 
         with tempfile.TemporaryDirectory() as tmp_dirname:
             svg_file_name = os.path.join(tmp_dirname, SVG_FILENAME)
-            with open(svg_file_name, mode="wb") as svg_file:
+            with open(svg_file_name, "wb") as svg_file:
                 svg_file.write(filecontent)
 
-            self.driver.get("file:///" + os.path.abspath(svg_file_name))
-            viewport = get_bbox(self.driver.find_element(By.ID, "BG"))
+            page = self.browser.new_page()
+            page.goto(f"file://{os.path.abspath(svg_file_name)}")
+
+            viewport_element = page.locator("#BG")
+            if not viewport_element.is_visible():
+                page.close()
+                return {element_id: None for element_id in element_ids}
+
+            viewport = get_bbox(viewport_element)
+            if viewport is None:
+                page.close()
+                return {element_id: None for element_id in element_ids}
+
             for element_id_and_multiline in element_ids:
                 if isinstance(element_id_and_multiline, tuple):
                     element_id, multiline = element_id_and_multiline
@@ -323,13 +290,12 @@ class ChromeSVGRenderer(SVGRenderer):
                     bbox = None
                     line_idx = 1
                     while True:
-                        try:
-                            element_line = self.driver.find_element(
-                                By.ID, f"{element_id}_{line_idx}"
-                            )
-                        except NoSuchElementException:
+                        element_line = page.locator(f"#{element_id}_{line_idx}")
+                        if not element_line.is_visible():
                             break
                         bbox_line = get_bbox(element_line)
+                        if bbox_line is None:
+                            break
                         bbox_line = rescale_and_clip(bbox_line, viewport)
                         if bbox is None:
                             bbox = bbox_line
@@ -337,16 +303,17 @@ class ChromeSVGRenderer(SVGRenderer):
                             bbox = bbox.union(bbox_line)
                         line_idx += 1
                 else:
-                    try:
-                        element_line = self.driver.find_element(
-                            By.ID, element_id
-                        )
-                        bbox = get_bbox(self.driver.find_element(By.ID, element_id))
-                        bbox = rescale_and_clip(bbox, viewport)
-                    except NoSuchElementException:
+                    element = page.locator(f"#{element_id}")
+                    if element.is_visible():
+                        bbox = get_bbox(element)
+                        if bbox is not None:
+                            bbox = rescale_and_clip(bbox, viewport)
+                    else:
                         bbox = None
 
                 coordinates[element_id] = bbox
+
+            page.close()
 
         return coordinates
 

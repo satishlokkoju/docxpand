@@ -8,7 +8,7 @@ import click
 import tqdm
 
 from docxpand.dataset import DocFakerDataset
-from docxpand.svg_to_image import ChromeSVGRenderer
+from docxpand.svg_to_image import PlaywrightSVGRenderer
 from docxpand.utils import guess_mimetype
 
 
@@ -44,7 +44,7 @@ def extract_fields_locations_from_svgs(
 ) -> None:
     """Extract fields locations from SVGs."""
     documents = []
-    renderer = ChromeSVGRenderer()
+    renderer = PlaywrightSVGRenderer()
     input_dataset = DocFakerDataset(
         dataset_input=document_dataset,
         images_dir=document_images

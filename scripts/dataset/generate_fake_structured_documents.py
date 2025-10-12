@@ -7,7 +7,7 @@ import click
 from docxpand.dataset import DocFakerDataset
 
 from docxpand.generator import Generator
-from docxpand.svg_to_image import ChromeSVGRenderer
+from docxpand.svg_to_image import PlaywrightSVGRenderer
 
 logger = logging.getLogger(__name__)
 import os
@@ -60,7 +60,7 @@ def generate_fake_structured_documents(
             f"A JSON dataset already exists in {output_directory}. "
             "Please set a new output directory, or remove the existing files."
         )
-    renderer = ChromeSVGRenderer()
+    renderer = PlaywrightSVGRenderer()
     generator = Generator(template, renderer, stable_diffusion_api_url or "")
     all_docs = []
     for _ in range(number):
