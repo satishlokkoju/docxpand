@@ -1,7 +1,7 @@
 # DocXPand tool
 
 ## Requirements
-* [Python](https://www.python.org/downloads/) 3.9, 3.10 and 12
+* [Python](https://www.python.org/downloads/)  3.10 and 3.11  (support for 3.12 coming soon)
 * [Poetry](https://python-poetry.org/)
 * [Chrome](https://www.google.com/chrome/) and the corresponding [webdriver](https://googlechromelabs.github.io/chrome-for-testing/)
 * Stable diffusion for face generation, see [stable_diffusion](stable_diffusion/README.md)
