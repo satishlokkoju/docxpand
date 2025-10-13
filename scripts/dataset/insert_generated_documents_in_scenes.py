@@ -1,4 +1,5 @@
 """Script to process localization dataset and insert fake IDs in scenes."""
+import asyncio
 import logging
 import os
 import typing as tp
@@ -70,7 +71,7 @@ logger = logging.getLogger(__name__)
     default=None,
     help="Seed to initialize backgrounds shuffling.",
 )
-def main(
+async def main(
     document_dataset: str,
     document_images: str,
     scene_dataset: str,
@@ -80,17 +81,17 @@ def main(
     seed: tp.Optional[int]
 ) -> None:
     """Generate fake structured documents from an SVG template."""
-    renderer = PlaywrightSVGRenderer()
-    output_dataset_filename = insert_generated_documents_in_scenes(
-        document_dataset,
-        document_images,
-        scene_dataset,
-        scene_images,
-        renderer,
-        output_directory,
-        margins,
-        seed
-    )
+    async with PlaywrightSVGRenderer() as renderer:
+        output_dataset_filename = await insert_generated_documents_in_scenes(
+            document_dataset,
+            document_images,
+            scene_dataset,
+            scene_images,
+            renderer,
+            output_directory,
+            margins,
+            seed
+        )
     logger.info(
         f"Dataset written in {os.path.abspath(output_directory)}. "
         f"See {output_dataset_filename}."
@@ -98,4 +99,4 @@ def main(
 
 
 if __name__ == "__main__":
-    main()
+    asyncio.run(main())

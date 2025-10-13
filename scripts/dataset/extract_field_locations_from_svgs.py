@@ -1,5 +1,6 @@
 """Script to extract field locations from SVGs."""
 import datetime
+import asyncio
 import getpass
 import logging
 import os
@@ -37,55 +38,55 @@ logger = logging.getLogger(__name__)
     required=True,
     help="Path to output directory where new datasets will be stored.",
 )
-def extract_fields_locations_from_svgs(
+async def extract_fields_locations_from_svgs(
     document_dataset: str,
     document_images: str,
     output_directory: str,
 ) -> None:
     """Extract fields locations from SVGs."""
     documents = []
-    renderer = PlaywrightSVGRenderer()
-    input_dataset = DocFakerDataset(
-        dataset_input=document_dataset,
-        images_dir=document_images
-    )
-    progress = tqdm.tqdm(input_dataset.documents.items())
-    progress.set_description("Extracting field locations from SVGs")
-    for doc_id, doc_entry in progress:
-        filename = os.path.join(document_images, doc_entry["filename"])
-        if guess_mimetype(filename) != 'image/svg+xml':
-            raise RuntimeError(
-                "Cannot extract field locations from non-SVG images."
-            )
-        fields = doc_entry["annotations"][0]["fields"]
-        for side in fields:
-            # Only process the right side
-            if not doc_id.endswith(side):
-                continue
-            field_names_and_multiline = {
-                field_name:
-                (
+    async with PlaywrightSVGRenderer() as renderer:
+        input_dataset = DocFakerDataset(
+            dataset_input=document_dataset,
+            images_dir=document_images
+        )
+        progress = tqdm.tqdm(input_dataset.documents.items())
+        progress.set_description("Extracting field locations from SVGs")
+        for doc_id, doc_entry in progress:
+            filename = os.path.join(document_images, doc_entry["filename"])
+            if guess_mimetype(filename) != 'image/svg+xml':
+                raise RuntimeError(
+                    "Cannot extract field locations from non-SVG images."
+                )
+            fields = doc_entry["annotations"][0]["fields"]
+            for side in fields:
+                # Only process the right side
+                if not doc_id.endswith(side):
+                    continue
+                field_names_and_multiline = {
+                    field_name:
                     (
-                        f"{field_name}_field"
-                        if field_value.get("type") == "text"
-                        else f"{field_name}_image"
-                    ),
-                    isinstance(field_value.get("value"), list)
+                        (
+                            f"{field_name}_field"
+                            if field_value.get("type") == "text"
+                            else f"{field_name}_image"
+                        ),
+                        isinstance(field_value.get("value"), list)
+                    )
+                    for field_name, field_value in fields[side].items()
+                }
+                positions = await renderer.get_coordinates(
+                    filename,
+                    element_ids=list(field_names_and_multiline.values())
                 )
-                for field_name, field_value in fields[side].items()
-            }
-            positions = renderer.get_coordinates(
-                filename,
-                element_ids=list(field_names_and_multiline.values())
-            )
-            for field_name in field_names_and_multiline:
-                element_id = field_names_and_multiline[field_name][0]
-                position = positions[element_id]
-                fields[side][field_name]["position"] = (
-                    position.to_dict() if position else None
-                )
+                for field_name in field_names_and_multiline:
+                    element_id = field_names_and_multiline[field_name][0]
+                    position = positions[element_id]
+                    fields[side][field_name]["position"] = (
+                        position.to_dict() if position else None
+                    )
 
-        documents.append(doc_entry)
+            documents.append(doc_entry)
 
     output_dataset_dict = {
         "__class__": "DocFakerDataset",
@@ -102,4 +103,4 @@ def extract_fields_locations_from_svgs(
     output_dataset.save(filename)
 
 if __name__ == "__main__":
-    extract_fields_locations_from_svgs()
+    asyncio.run(extract_fields_locations_from_svgs())

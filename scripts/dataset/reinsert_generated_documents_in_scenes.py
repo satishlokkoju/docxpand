@@ -1,4 +1,5 @@
 """Script to process localization dataset and insert fake IDs in scenes."""
+import asyncio
 import logging
 import os
 import typing as tp
@@ -96,57 +97,57 @@ def load_scenes(
     required=True,
     help="Path to output directory where fake documents will be stored.",
 )
-def main(
+async def main(
     document_dataset: str,
     document_images: str,
     scene_images: str,
     output_directory: str,
 ) -> None:
     """Generate fake structured documents from an SVG template."""
-    renderer = PlaywrightSVGRenderer()
-    os.makedirs(os.path.abspath(output_directory), exist_ok=True)
+    async with PlaywrightSVGRenderer() as renderer:
+        os.makedirs(os.path.abspath(output_directory), exist_ok=True)
 
-    # Read the documents dataset and the scenes directory
-    documents = load_documents(document_dataset, document_images)
-    scenes = load_scenes(scene_images)
+        # Read the documents dataset and the scenes directory
+        documents = load_documents(document_dataset, document_images)
+        scenes = load_scenes(scene_images)
 
-    # Specimen image
-    specimen_img = load_specimen("passport_fra_2006")
+        # Specimen image
+        specimen_img = load_specimen("passport_fra_2006")
 
-    # Iterate on documents
-    progress = tqdm.tqdm(documents)
-    progress.set_description("Re-inserting documents in scenes...")
-    for svg_path, doc_id, doc_entry in progress:
-        # Check template
-        annotations = doc_entry["annotations"][0]
-        template = annotations["template"]
-        if template != "PP_TD3_C-front":
-            continue
+        # Iterate on documents
+        progress = tqdm.tqdm(documents)
+        progress.set_description("Re-inserting documents in scenes...")
+        for svg_path, doc_id, doc_entry in progress:
+            # Check template
+            annotations = doc_entry["annotations"][0]
+            template = annotations["template"]
+            if template != "PP_TD3_C-front":
+                continue
 
-        # Check file is not already generated
-        output_filename, _ = os.path.splitext(
-            os.path.basename(doc_entry["filename"])
-        )
-        output_filename = os.path.join(output_directory, f"{output_filename}.jpg")
-        if os.path.exists(output_filename):
-            continue
+            # Check file is not already generated
+            output_filename, _ = os.path.splitext(
+                os.path.basename(doc_entry["filename"])
+            )
+            output_filename = os.path.join(output_directory, f"{output_filename}.jpg")
+            if os.path.exists(output_filename):
+                continue
 
-        # Load images
-        try:
-            scene_path = scenes[annotations["scene_image"]]
-        except:
-            scene_path = os.path.join("/home/qsuser/Work/DocXPand/Data/DocXPand_Generated/JPG/images/", doc_entry["filename"])
+            # Load images
+            try:
+                scene_path = scenes[annotations["scene_image"]]
+            except:
+                scene_path = os.path.join("/home/qsuser/Work/DocXPand/Data/DocXPand_Generated/JPG/images/", doc_entry["filename"])
 
-        scene_img = load_document(
-            scene_path, space=ColorSpace.BGRA, ignore_orientation=False
-        )
-        scene_quad = Quadrangle.from_dict(annotations["position"])
-        scene_quad = scene_quad.rescale(scene_img.width, scene_img.height)
+            scene_img = load_document(
+                scene_path, space=ColorSpace.BGRA, ignore_orientation=False
+            )
+            scene_quad = Quadrangle.from_dict(annotations["position"])
+            scene_quad = scene_quad.rescale(scene_img.width, scene_img.height)
 
-        doc_img = renderer.render(filename=svg_path)
+            doc_img = await renderer.render(filename=svg_path)
 
-        # Rectification
-        document_in_scene_image = rectify_document(scene_img, scene_quad)
+            # Rectification
+            document_in_scene_image = rectify_document(scene_img, scene_quad)
 
         # Color transfer
         document_img_transferred = (
@@ -183,4 +184,4 @@ def main(
         inserted_img.write(output_filename)
 
 if __name__ == "__main__":
-    main()
+    asyncio.run(main())

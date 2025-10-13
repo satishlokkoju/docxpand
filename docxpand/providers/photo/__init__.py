@@ -86,7 +86,7 @@ class IDPhoto(tp.NamedTuple):
             age = int(analysis["age"])
         if not ethnicity:
             ethnicity = analysis["race"]
-        region = analysis[0]["region"]
+        region = analysis["region"]
         top_left = Point(region["x"], region["y"])
         bottom_right = Point(
             int(region["x"] + region["w"]), (region["y"] + region["h"])

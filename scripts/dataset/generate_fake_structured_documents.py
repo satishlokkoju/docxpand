@@ -1,4 +1,5 @@
 import datetime
+import asyncio
 import getpass
 import logging
 import typing as tp
@@ -43,7 +44,7 @@ import os
     required=True,
     help="URL pointing to Stable Diffusion API, used to generate identity photos.",
 )
-def generate_fake_structured_documents(
+async def generate_fake_structured_documents(
     template: str,
     number: int,
     output_directory: str,
@@ -60,19 +61,19 @@ def generate_fake_structured_documents(
             f"A JSON dataset already exists in {output_directory}. "
             "Please set a new output directory, or remove the existing files."
         )
-    renderer = PlaywrightSVGRenderer()
-    generator = Generator(template, renderer, stable_diffusion_api_url or "")
-    all_docs = []
-    for _ in range(number):
-        try:
-            side_entries = generator.generate_images(output_directory)
-        except Exception as err:
-            logger.warning(
-                f"Got an error while generating images ({type(err)}: {err}), "
-                "continuing..."
-            )
-            continue
-        all_docs.extend(side_entries)
+    async with PlaywrightSVGRenderer() as renderer:
+        generator = Generator(template, renderer, stable_diffusion_api_url or "")
+        all_docs = []
+        for _ in range(number):
+            try:
+                side_entries = await generator.generate_images(output_directory)
+            except Exception as err:
+                logger.warning(
+                    f"Got an error while generating images ({type(err)}: {err}), "
+                    "continuing..."
+                )
+                continue
+            all_docs.extend(side_entries)
     dataset = DocFakerDataset(
         {
             "__class__": "DocFakerDataset",
@@ -95,4 +96,4 @@ def generate_fake_structured_documents(
 
 
 if __name__ == "__main__":
-    generate_fake_structured_documents()
+    asyncio.run(generate_fake_structured_documents())

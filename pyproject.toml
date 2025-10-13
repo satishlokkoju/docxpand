@@ -15,7 +15,7 @@ Faker = "^19.1.0"
 lxml = "^4.9.1"
 zxing-cpp = "^2.0.0"
 dateparser = "^1.1.8"
-deepface = "^0.0.79"
+deepface = "^0.0.89"
 imagehash = "^4.3.1"
 protobuf = "^3.14.0"
 numpy = "^1.26.0"
@@ -31,6 +31,7 @@ torch = "2.5.1"
 matplotlib = "^3.8.2"
 packaging = "^25"
 playwright = "^1.32.1"
+tf-keras = "2.16.0"
 
 [tool.poetry.group.dev.dependencies]
 black = "^23.3.0"
@@ -39,6 +40,7 @@ coverage = "^7.2.3"
 autoflake = "^2.0.2"
 pytest-cov = "^4.0.0"
 pytest-playwright = "^0.3.3"
+pytest-asyncio = "^0.21.0"
 
 [build-system]
 requires = ["poetry-core>=1.1.0"]
