@@ -192,10 +192,17 @@ class ChromeSVGRenderer(SVGRenderer):
         """
         super().__init__()
         options = webdriver.ChromeOptions()
-        options.add_argument("disable-gpu")
-        options.add_argument("disable-infobars")
         options.add_argument("--headless")
-        options.add_argument("window-size=1920,1080")
+        options.add_argument("--no-sandbox")
+        options.add_argument("--disable-gpu")
+        options.add_argument("--disable-infobars")
+        options.add_argument("--disable-extensions")
+        options.add_argument("--disable-dev-shm-usage")
+        options.add_argument("--disable-software-rasterizer")
+        options.add_argument("--window-size=1920,1080")
+        options.add_argument(f"--user-data-dir={tempfile.mkdtemp()}")
+        options.add_argument("--executable_path=/usr/bin/chromedriver")
+        options.binary_location = "/usr/bin/google-chrome"
 
         if chrome_driver_path:
             self.driver = webdriver.Chrome(
@@ -218,9 +225,33 @@ class ChromeSVGRenderer(SVGRenderer):
         resource = (
             "/session/%s/chromium/send_command_and_get_result" % self.driver.session_id
         )
-        url = self.driver.command_executor._url + resource
+        # Handle different Selenium versions
+        try:
+            # Selenium 4.x
+            base_url = self.driver.command_executor.service_url
+        except AttributeError:
+            # Selenium 3.x fallback
+            base_url = self.driver.command_executor._url
+        url = base_url + resource
         body = json.dumps({"cmd": cmd, "params": params or {}})
-        response = self.driver.command_executor._request("POST", url, body)
+        
+        # Handle different Selenium versions for request method
+        try:
+            # For Selenium 4.x, use the execute method
+            response = self.driver.execute("sendCommand", {
+                "cmd": cmd,
+                "params": params or {}
+            })
+        except Exception as e:
+            # Fallback to direct HTTP request
+            try:
+                response = self.driver.command_executor._request("POST", url, body)
+            except Exception:
+                # If all else fails, try manual HTTP request
+                import requests
+                headers = {"Content-Type": "application/json"}
+                resp = requests.post(url, data=body, headers=headers)
+                response = resp.json()
         if "status" in response:
             raise Exception(response.get("value"))
         return response.get("value")

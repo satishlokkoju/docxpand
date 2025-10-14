@@ -19,7 +19,7 @@ from docxpand.specimen import SPECIMENS_DIR
 from docxpand.utils import get_field_from_any_side
 
 ID_PHOTO_BANK_LOCATION = os.path.abspath(
-    os.path.join(os.path.dirname(__file__), *(os.pardir,) * 5, "id_photos")
+    os.path.join(os.path.dirname(__file__), *(os.pardir,) * 3, "id_photos")
 )
 
 
