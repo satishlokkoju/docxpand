@@ -32,7 +32,7 @@ ILLUMINATION_CORRECTION_MIN_MAX_FACE = (0.9, 3.0, 1.5)
 def rectify_document(
     image: Image,
     quad: Quadrangle,
-    target_width: int = 720,
+    target_width: int = 1024,
 ) -> Image:
     """Rectify document using its localization and the specified target width.
 
@@ -48,10 +48,11 @@ def rectify_document(
         quad, image.width, image.height, target_width
     )
 
-    # Rectify the perspective
+    # Rectify the perspective with maximum-quality interpolation
     rectified_array = cv2.warpPerspective(
         image.array, homography, (target_width, target_height),
-        borderMode=cv2.BORDER_REPLICATE
+        borderMode=cv2.BORDER_REPLICATE,
+        flags=cv2.INTER_LANCZOS4
     )
 
     return Image(rectified_array, Image.guess_space(rectified_array))
@@ -250,6 +251,7 @@ def insert_image_in_background(
         img_to_insert.array,
         homography,
         (background_img.width, background_img.height),
+        flags=cv2.INTER_LANCZOS4
     )
     # convert foreground to BGR
     foreground = Image(inverted_img, Image.guess_space(inverted_img)).convert_color(
@@ -279,7 +281,7 @@ def insert_image_in_background(
     out_image = cv2.add(foreground_array, background_array)
 
     final_img_arr = blur_document_edges(img_arr=out_image, quad=quad)
-
+    # final_img_arr = out_image  # DISABLED: Edge blur disabled for text sharpness
     final_img = Image(array=final_img_arr, space=Image.guess_space(final_img_arr))
     return final_img
 
@@ -287,8 +289,8 @@ def insert_image_in_background(
 def blur_document_edges(
     img_arr: np.ndarray,
     quad: Quadrangle,
-    ksize: tp.Tuple[int, int] = (25, 25),
-    sigma: float = 0.0
+    ksize: tp.Tuple[int, int] = (5, 5),
+    sigma: float = 1.0
 ) -> np.array:
     """Add gaussian blur around the document edges.
 
@@ -307,8 +309,8 @@ def blur_document_edges(
     height, width, channel = img_arr.shape
     mask = np.zeros((height, width, channel), dtype=np.uint8)
     edges_width = min(
-        int((quad.p1.distance(quad.p2) + quad.p3.distance(quad.p4)) / 2 * 0.005),
-        3,
+        int((quad.p1.distance(quad.p2) + quad.p3.distance(quad.p4)) / 2 * 0.002),
+        2,
     )
     pts = np.array(
         [
@@ -391,7 +393,9 @@ def insert_generated_documents_in_scenes(
     renderer: tp.Optional[SVGRenderer],
     output_directory: str,
     margins: tp.Optional[float] = None,
-    seed: tp.Optional[int] = None
+    seed: tp.Optional[int] = None,
+    enable_color_transfer: bool = False,
+    enable_illumination_transfer: bool = False
 ) -> str:
     """Generate fake structured documents from an SVG template."""
     os.makedirs(os.path.abspath(output_directory), exist_ok=True)
@@ -464,21 +468,28 @@ def insert_generated_documents_in_scenes(
             # Rectification
             document_in_scene_image = rectify_document(scene_img, scene_quad)
 
-            # Color transfer
-            document_img_transferred = (
-                color_transfer_reinhard(
+            if enable_color_transfer:
+                logger.info('Color transfer - ENABLED')
+                document_img_transferred = (
+                    color_transfer_reinhard(
+                        scene=document_in_scene_image,
+                        specimen=specimen_imgs[specimen_name],
+                        document=doc_img
+                    )
+                )
+            else:
+                logger.info('Color transfer - DISABLED to preserve original document colors')
+            document_img_transferred = doc_img
+
+            if enable_illumination_transfer:
+                logger.info('Illumination transfer - ENABLED')
+                document_img_transferred = illumination_transfer(
                     scene=document_in_scene_image,
                     specimen=specimen_imgs[specimen_name],
-                    document=doc_img
+                    document=document_img_transferred
                 )
-            )
-
-            # Illumination transfer
-            document_img_transferred = illumination_transfer(
-                scene=document_in_scene_image,
-                specimen=specimen_imgs[specimen_name],
-                document=document_img_transferred
-            )
+            else:
+                logger.info('Illumination transfer - DISABLED to preserve original document lighting')
 
             # Insert document
             original_quad = Quadrangle(

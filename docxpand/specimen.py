@@ -11,21 +11,27 @@ def load_specimen(specimen_name: str) -> tp.Optional[Image]:
     """Load document Prado specimen by name.
 
     Args:
-        subtype: document classification subtype
-        side: document classification side
+        specimen_name: document classification name (e.g., "granite_surface")
 
     Returns:
          specimen image or None if it is not found
     """
     try:
-        specimen_path = os.path.join(
-            SPECIMENS_DIR,
-            f"{specimen_name.lower().replace('_', '-')}.jpg",
-        )
-        if not os.path.exists(specimen_path):
-            print(f"{specimen_path} not found")
-            return None
-        specimen_img = Image.read(specimen_path)
-        return specimen_img
-    except Exception:
+        base_name = specimen_name.lower().replace('_', '-')
+        
+        # Try multiple formats in order of preference
+        formats = ['.jpg', '.jpeg', '.png', '.tiff', '.tif', '.bmp', '.webp']
+        
+        for fmt in formats:
+            specimen_path = os.path.join(SPECIMENS_DIR, f"{base_name}{fmt}")
+            if os.path.exists(specimen_path):
+                specimen_img = Image.read(specimen_path)
+                return specimen_img
+        
+        print(f"Specimen '{specimen_name}' not found in any supported format")
+        print(f"Looked for: {[f'{base_name}{fmt}' for fmt in formats]}")
+        return None
+        
+    except Exception as e:
+        print(f"Error loading specimen '{specimen_name}': {e}")
         return None

@@ -14,11 +14,29 @@ from docxpand.image import ColorSpace, Image
 from docxpand.utils import guess_mimetype
 
 # HTML template to use with Chrome-based renderer.
+# Background style is either 'white' or 'transparent'
 HTML_TEMPLATE = """
 <!DOCTYPE html>
 <html>
-<body style="background: transparent; margin: 0">
-<img style="background: transparent; margin: 0" id="svg-image" src="{svg_file}" width="{width}px" />
+<head>
+<style>
+body {{
+    background: transparent;
+    margin: 0;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+}}
+#svg-image {{
+    background: transparent;
+    margin: 0;
+    image-rendering: -webkit-optimize-contrast;
+    image-rendering: crisp-edges;
+}}
+</style>
+</head>
+<body>
+<img id="svg-image" src="{svg_file}" width="{width}px" />
 </body>
 </html>
 """
@@ -200,6 +218,13 @@ class ChromeSVGRenderer(SVGRenderer):
         options.add_argument("--disable-dev-shm-usage")
         options.add_argument("--disable-software-rasterizer")
         options.add_argument("--window-size=1920,1080")
+        # Text rendering optimizations for maximum sharpness
+        options.add_argument("--force-device-scale-factor=2")
+        options.add_argument("--disable-font-subpixel-positioning")
+        options.add_argument("--enable-font-antialiasing")
+        options.add_argument("--disable-lcd-text")
+        options.add_argument("--disable-background-timer-throttling")
+        options.add_argument("--disable-renderer-backgrounding")
         options.add_argument(f"--user-data-dir={tempfile.mkdtemp()}")
         options.add_argument("--executable_path=/usr/bin/chromedriver")
         options.binary_location = "/usr/bin/google-chrome"

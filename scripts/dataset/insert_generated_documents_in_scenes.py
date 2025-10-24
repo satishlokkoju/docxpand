@@ -70,6 +70,18 @@ logger = logging.getLogger(__name__)
     default=None,
     help="Seed to initialize backgrounds shuffling.",
 )
+@click.option(
+    "--enable-color-transfer",
+    is_flag=True,
+    default=False,
+    help="Enable color transfer to match document colors to scene.",
+)
+@click.option(
+    "--enable-illumination-transfer", 
+    is_flag=True,
+    default=False,
+    help="Enable illumination transfer to match document lighting to scene.",
+)
 def main(
     document_dataset: str,
     document_images: str,
@@ -77,7 +89,9 @@ def main(
     scene_images: str,
     output_directory: str,
     margins: tp.Optional[float],
-    seed: tp.Optional[int]
+    seed: tp.Optional[int],
+    enable_color_transfer: bool,
+    enable_illumination_transfer: bool
 ) -> None:
     """Generate fake structured documents from an SVG template."""
     renderer = ChromeSVGRenderer()
@@ -89,7 +103,9 @@ def main(
         renderer,
         output_directory,
         margins,
-        seed
+        seed,
+        enable_color_transfer,
+        enable_illumination_transfer
     )
     logger.info(
         f"Dataset written in {os.path.abspath(output_directory)}. "

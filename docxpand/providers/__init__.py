@@ -13,6 +13,19 @@ from docxpand.utils import get_field_from_any_side
 GENERIC_FAKER = Faker()
 
 
+class IntegerProvider:
+    def __init__(self, start: int, end: int) -> None:
+        self.start = start
+        self.end = end
+
+    def choice(self) -> str:
+        return IntegerProvider.random_choice(self.start, self.end)
+
+    @staticmethod
+    def random_choice(start: int, end: int) -> str:
+        return str(random.randint(start, end))
+
+
 class ChoiceProvider:
     def __init__(self, choices: tp.Union[tp.Dict[str, float], tp.List[str]]) -> None:
         self.choices = choices
