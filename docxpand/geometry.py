@@ -275,7 +275,7 @@ class Quadrangle(tp.NamedTuple):
         self,
         margins: tp.Union[float, tp.Tuple[float, float, float, float]],
         viewport: tp.Tuple[float, float],
-        target_width: float = 720
+        target_width: float = 1024
     ) -> "Quadrangle":
         """Add some margin to a quadrangle.
 
@@ -691,7 +691,7 @@ def estimate_homography_without_target(
     quad: Quadrangle,
     image_width: float,
     image_height: float,
-    target_width: float = 720,
+    target_width: float = 1024,
 ):
     """Estimate homography without clear idea of output size.
 

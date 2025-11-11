@@ -31,6 +31,10 @@ lpips = "^0.1.4"
 torch = "2.5.1"
 matplotlib = "^3.8.2"
 packaging = "^25"
+chinese-address-generator = "^0.2.0"
+pathlib2 = "^2.3.7"
+numpy = "^1.26.4"
+
 
 [tool.poetry.group.dev.dependencies]
 black = "^23.3.0"

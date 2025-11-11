@@ -120,6 +120,8 @@ class Canvas:
             encoding=encoding,
         ) as infile:
             kwargs["remove_blank_text"] = remove_blank_text  # lxml specific
+            # Increase limits for large font files embedded in SVG
+            kwargs["huge_tree"] = True
             parser = XMLParser(**kwargs)
             self._tree = etree.parse(infile, parser)
             self._root = self._tree.getroot()

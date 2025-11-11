@@ -189,7 +189,7 @@ class Image:
         height: int = 0,
         width: int = 0,
         max_side: int = 0,
-        interpolation: int = cv2.INTER_AREA,
+        interpolation: int = cv2.INTER_LANCZOS4,
     ) -> "Image":
         """Return a resized image.
 

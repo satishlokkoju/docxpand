@@ -1,7 +1,9 @@
+import time
 import datetime
 import getpass
 import logging
 import typing as tp
+import numpy as np
 
 import click
 from docxpand.dataset import DocFakerDataset
@@ -10,6 +12,7 @@ from docxpand.generator import Generator
 from docxpand.svg_to_image import ChromeSVGRenderer
 
 logger = logging.getLogger(__name__)
+logger.setLevel(logging.INFO)
 import os
 
 
@@ -63,9 +66,15 @@ def generate_fake_structured_documents(
     renderer = ChromeSVGRenderer()
     generator = Generator(template, renderer, stable_diffusion_api_url or "")
     all_docs = []
+    latencies = []
     for _ in range(number):
         try:
+            start_time = time.perf_counter()
             side_entries = generator.generate_images(output_directory)
+            end_time = time.perf_counter()
+            elapsed_time = end_time - start_time
+            latencies.append(elapsed_time)
+            logger.info(f"Elapsed Time: {elapsed_time} seconds")
         except Exception as err:
             logger.warning(
                 f"Got an error while generating images ({type(err)}: {err}), "
@@ -73,6 +82,7 @@ def generate_fake_structured_documents(
             )
             continue
         all_docs.extend(side_entries)
+    logger.info(f"Average Latency: {np.mean(latencies)} seconds")
     dataset = DocFakerDataset(
         {
             "__class__": "DocFakerDataset",

@@ -1,5 +1,6 @@
 import datetime
 import os
+import re
 import typing as tp
 import uuid
 
@@ -270,8 +271,158 @@ class Generator:
         if image_element is None:
             print(f"Cannot get image element from id {element_id}, ignoring.")
             return
-        href_key = f"{{{XLINK_NS}}}href"
-        image_element.attrib[href_key] = field_values.base64encode(format)
+        
+        # Try both href and xlink:href attributes
+        xlink_href_key = f"{{{XLINK_NS}}}href"
+        href_key = "href"
+        
+        # Check which href attribute exists and use that one
+        if href_key in image_element.attrib:
+            print(f"Using href attribute")
+            image_element.attrib[href_key] = field_values.base64encode(format)
+        elif xlink_href_key in image_element.attrib:
+            print(f"Using xlink:href attribute")
+            image_element.attrib[xlink_href_key] = field_values.base64encode(format)
+        else:
+            # Default to href if neither exists
+            print(f"No existing href found, using href attribute")
+            image_element.attrib[href_key] = field_values.base64encode(format)
+
+    def extract_field_positions_from_template(self, side_name: str) -> tp.Dict[str, tp.Dict]:
+        """Extract field positions from SVG template for bounding box annotations."""
+        side = self.template.sides[side_name]
+        svg_path = os.path.join(
+            TEMPLATES_DIR,
+            os.path.dirname(self.template.filename),
+            side.template,
+        )
+        print('SVG Path:', svg_path)
+        
+        if not os.path.exists(svg_path):
+            return {}
+        
+        with open(svg_path, 'r', encoding='utf-8') as f:
+            content = f.read()
+        
+        # Get SVG dimensions
+        svg_match = re.search(r'<svg[^>]*width="(\d+)"[^>]*height="(\d+)"', content)
+        if not svg_match:
+            return {}
+        
+        svg_width = float(svg_match.group(1))
+        svg_height = float(svg_match.group(2))
+        
+        field_positions = {}
+        
+        # Extract text fields with transform="translate(x, y)"
+        # text_pattern = r'<text[^>]*id="([^"]*_field)"[^>]*transform="translate\(([^,\s]+)[\s,]+([^)]+)\)"'
+        text_pattern = r'<text[^>]*id="([^"]*_field(?:_\d+)?)"[^>]*transform="translate\(([^,\s]+)[\s,]+([^)]+)\)"'
+        text_matches = re.findall(text_pattern, content)
+        
+        for field_id, x_str, y_str in text_matches:
+            try:
+                x = float(x_str)
+                y = float(y_str)
+                
+                # Get field info from template
+                field_name = field_id.replace('_field', '') if 'address' not in field_id else 'address'
+                field = side.get_field(field_name)
+                # NOTE: Temporary hack for addresses which are multi-line
+                if 'address' in field_id:
+                    field_name = field_id.replace('_field', '')
+                
+                # Estimate dimensions based on field type and content
+                if field and field.lines and field.lines > 1:
+                    estimated_height = 25 * field.lines  # Multi-line field
+                    estimated_width = 200
+                else:
+                    estimated_height = 25  # Single line
+                    estimated_width = 120
+                
+                # Convert to relative coordinates
+                rel_x = x / svg_width
+                rel_y = y / svg_height
+                rel_width = estimated_width / svg_width
+                rel_height = estimated_height / svg_height
+                
+                field_positions[field_name] = {
+                    "type": "text",
+                    "bounding_box": {
+                        "p1": {"x": round(rel_x, 4), "y": round(rel_y, 4), "label": f"{field_name}_top_left"},
+                        "p2": {"x": round(rel_x + rel_width, 4), "y": round(rel_y, 4), "label": f"{field_name}_top_right"},
+                        "p3": {"x": round(rel_x + rel_width, 4), "y": round(rel_y + rel_height, 4), "label": f"{field_name}_bottom_right"},
+                        "p4": {"x": round(rel_x, 4), "y": round(rel_y + rel_height, 4), "label": f"{field_name}_bottom_left"}
+                    }
+                }
+            except (ValueError, AttributeError) as e:
+                print(f"{type(e).__name__} occured with message: {e}")
+                continue
+        
+        # Extract image fields
+        image_pattern = r'<image[^>]*id="([^"]*_image)"[^>]*x="([^"]+)"[^>]*y="([^"]+)"[^>]*width="([^"]+)"[^>]*height="([^"]+)"'
+        image_matches = re.findall(image_pattern, content)
+        
+        for field_id, x_str, y_str, width_str, height_str in image_matches:
+            try:
+                x = float(x_str)
+                y = float(y_str)
+                width = float(width_str)
+                height = float(height_str)
+                
+                field_name = field_id.replace('_image', '')
+                
+                # Convert to relative coordinates
+                rel_x = x / svg_width
+                rel_y = y / svg_height
+                rel_width = width / svg_width
+                rel_height = height / svg_height
+                
+                field_positions[field_name] = {
+                    "type": "image",
+                    "bounding_box": {
+                        "p1": {"x": round(rel_x, 4), "y": round(rel_y, 4), "label": f"{field_name}_top_left"},
+                        "p2": {"x": round(rel_x + rel_width, 4), "y": round(rel_y, 4), "label": f"{field_name}_top_right"},
+                        "p3": {"x": round(rel_x + rel_width, 4), "y": round(rel_y + rel_height, 4), "label": f"{field_name}_bottom_right"},
+                        "p4": {"x": round(rel_x, 4), "y": round(rel_y + rel_height, 4), "label": f"{field_name}_bottom_left"}
+                    }
+                }
+            except (ValueError, AttributeError) as e:
+                print(f"{type(e).__name__} occured with message: {e}")
+                continue
+        
+        return field_positions
+
+    def create_field_annotations(self, field_positions: tp.Dict, field_values: tp.Dict, side_name: str) -> tp.Dict:
+        """Create field-level annotations with bounding boxes."""
+        
+        field_annotations = {}
+        
+        for field_name, position_data in field_positions.items():
+            print('Field Name:', field_name)
+            if field_name in field_values:
+                field_annotations[field_name] = {
+                    "value": field_values[field_name],
+                    "type": position_data["type"],
+                    "position": position_data["bounding_box"],
+                    "confidence": 1.0,
+                    "side": side_name
+                }
+            elif 'address' in field_name:
+                num_lines = len(field_values['address']['value'])
+                line_num = int(field_name.split('_')[-1])
+                if line_num <= num_lines:
+                    field_annotations[field_name] = {
+                        "value": {
+                            "type": field_values['address']['type'],
+                            "value": field_values['address']['value'][line_num - 1]
+                        },
+                        "type": position_data["type"],
+                        "position": position_data["bounding_box"],
+                        "confidence": 1.0,
+                        "side": side_name
+                    }
+        
+        return field_annotations
 
     def generate_images(
         self,
@@ -396,6 +547,12 @@ class Generator:
                 os.remove(output_filename)
                 output_filename = png_output
             output_filenames.append(output_filename)
+            # Extract field positions and create field-level annotations
+            field_positions = self.extract_field_positions_from_template(side_name)
+            field_annotations = self.create_field_annotations(
+                field_positions, output_fields[side_name], side_name
+            )
+            
             creation_date = datetime.datetime.utcnow().isoformat()
             entries.append(
                 {
@@ -406,6 +563,7 @@ class Generator:
                             "annotator": "automatic",
                             "created_at": creation_date,
                             "fields": output_fields,
+                            "field_annotations": field_annotations,
                             "position": {
                                 "p1": {"x": 0.0, "y": 0.0},
                                 "p2": {"x": 1.0, "y": 0.0},

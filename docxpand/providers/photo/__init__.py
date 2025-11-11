@@ -18,8 +18,9 @@ from docxpand.providers.photo.halftone import halftone
 from docxpand.specimen import SPECIMENS_DIR
 from docxpand.utils import get_field_from_any_side
 
+# Original multiplication value was 5 but changed to 3 to allow for SageMaker Studio usage
 ID_PHOTO_BANK_LOCATION = os.path.abspath(
-    os.path.join(os.path.dirname(__file__), *(os.pardir,) * 5, "id_photos")
+    os.path.join(os.path.dirname(__file__), *(os.pardir,) * 3, "id_photos")
 )
 
 
@@ -78,7 +79,8 @@ class IDPhoto(tp.NamedTuple):
                 actions=actions,
                 detector_backend="retinaface",
             )
-        except Exception:
+        except Exception as e:
+            print(f'DeepFace failed with error: {e}')
             return IDPhoto(None, "", -1, "", None), None
         if not gender:
             gender = {"Woman": "female", "Man": "male"}[analysis["gender"]]
