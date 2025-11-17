@@ -332,6 +332,18 @@ files = [
 ]
 
 [[package]]
+name = "chinese-address-generator"
+version = "0.2.0"
+description = "Random generation of Chinese place names"
+optional = false
+python-versions = "*"
+groups = ["main"]
+files = [
+    {file = "chinese_address_generator-0.2.0-py3-none-any.whl", hash = "sha256:ab0b7d533491a256bf1b8feb37248e9fe8d6fa3eead2c7cf48bf3144ad55ca55"},
+    {file = "chinese_address_generator-0.2.0.tar.gz", hash = "sha256:f1126bc8bed675f678006cc96ebcb0b29ac466f785c510f879ce031eeb0f4649"},
+]
+
+[[package]]
 name = "click"
 version = "8.1.7"
 description = "Composable command line interface toolkit"
@@ -1955,6 +1967,21 @@ test = ["hypothesis (>=6.34.2)", "pytest (>=7.3.2)", "pytest-asyncio (>=0.17.0)"
 xml = ["lxml (>=4.6.3)"]
 
 [[package]]
+name = "pathlib2"
+version = "2.3.7.post1"
+description = "Object-oriented filesystem paths"
+optional = false
+python-versions = "*"
+groups = ["main"]
+files = [
+    {file = "pathlib2-2.3.7.post1-py2.py3-none-any.whl", hash = "sha256:5266a0fd000452f1b3467d782f079a4343c63aaa119221fbdc4e39577489ca5b"},
+    {file = "pathlib2-2.3.7.post1.tar.gz", hash = "sha256:9fe0edad898b83c0c3e199c842b27ed216645d2e177757b2dd67384d4113c641"},
+]
+
+[package.dependencies]
+six = "*"
+
+[[package]]
 name = "pathspec"
 version = "0.12.1"
 description = "Utility library for gitignore style pattern matching of file paths."
@@ -3555,4 +3582,4 @@ files = [
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.10,<3.13"
-content-hash = "39249362e2c630e01986832b82f723eb4bd87644069ef5085c0323c2233d39e7"
+content-hash = "44de7c5ad91ae66f1a346a10ca6dfe7b38605235fccafd40f917b3a7d23805a2"
